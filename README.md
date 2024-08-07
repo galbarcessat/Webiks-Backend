@@ -1,1 +1,1 @@
-Check location server
+Webiks server

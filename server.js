@@ -7,8 +7,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const app = express()
-// app.use(express.json())
 app.use(express.json({ limit: '50mb' }))
+// app.use(express.json())
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -96,32 +96,6 @@ function getCountryBoundariesByCode(countryCode) {
         coordinates: countryDetails.geometry.coordinates
     }
 }
-
-//CHECK IF A SINGLE LOCATION IS WITHIN A COUNTRY BOUNDARIES - 
-
-// app.post('/check-location', async (req, res) => {
-//     const { coordinates, countryCode } = req.body
-//     console.log('req.body:', req.body)
-//     if (!coordinates || !countryCode || countryCode.length !== 2) {
-//         return res.status(400).json({ error: 'Missing coordinates or countryCode' })
-//     }
-
-//     try {
-//         const countryBoundaries = await getCountryBoundariesByCode(countryCode)
-
-//         if (!countryBoundaries) {
-//             return res.status(404).json({ error: 'Country not found' })
-//         }
-
-//         const pointLocation = point(coordinates)
-//         const isInside = booleanPointInPolygon(pointLocation, countryBoundaries)
-//         console.log('isInside:', isInside)
-//         res.json({ isInside })
-//     } catch (error) {
-//         console.log('error:', error)
-//         res.status(500).json({ error: 'Internal Server Error' })
-//     }
-// })
 
 const port = process.env.PORT || 3030
 app.listen(port, () => {
