@@ -57,7 +57,6 @@ app.get('/stores', async (req, res) => {
 //FILTER MULTIPLE STORES WITHIN COUNTRY BOUNDARIES
 app.post('/filter-stores', async (req, res) => {
     const { countryCode } = req.body
-    console.log('req.body:', req.body)
     if (!allStores || !countryCode || countryCode.length !== 2) {
         return res.status(400).json({ error: 'Missing stores or countryCode' })
     }
@@ -74,7 +73,6 @@ app.post('/filter-stores', async (req, res) => {
             return booleanPointInPolygon(pointLocation, countryBoundaries)
         })
 
-        console.log('filteredStores:', filteredStores)
         res.json({ filteredStores, countryBoundaries })
     } catch (error) {
         console.error('error:', error)
