@@ -7,22 +7,23 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const app = express()
-app.use(express.json())
+// app.use(express.json())
+app.use(express.json({ limit: '50mb' }))
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
-
-const countryBoundariesPath = path.join(__dirname, 'countries.geojson');
-let allCountryBoundaries = {};
+const countryBoundariesPath = path.join(__dirname, 'countries.geojson')
+let allCountryBoundaries = {}
+let allStores = []
 
 const loadCountryBoundaries = () => {
     if (fs.existsSync(countryBoundariesPath)) {
         allCountryBoundaries = JSON.parse(fs.readFileSync(countryBoundariesPath, 'utf8'));
     } else {
-        console.error('Country boundaries file not found.');
+        console.error('Country boundaries file not found.')
     }
-};
+}
 
 // Load the data when the server starts
 loadCountryBoundaries()
@@ -41,52 +42,86 @@ if (process.env.NODE_ENV !== 'production') {
     app.use(cors(corsOptions));
 }
 
-app.post('/check-location', async (req, res) => {
-    const { coordinates, countryCode } = req.body
-    console.log('req.body:', req.body)
-    if (!coordinates || !countryCode || countryCode.length !== 2) {
-        return res.status(400).json({ error: 'Missing coordinates or countryCode' });
-    }
 
+app.get('/stores', async (req, res) => {
     try {
-        const countryBoundaries = await getCountryBoundariesByCode(countryCode)
-
-        if (!countryBoundaries) {
-            return res.status(404).json({ error: 'Country not found' })
-        }
-
-        const pointLocation = point(coordinates)
-        const isInside = booleanPointInPolygon(pointLocation, countryBoundaries)
-        console.log('isInside:', isInside)
-        res.json({ isInside })
+        const { data } = await axios.get('https://raw.githubusercontent.com/mmcloughlin/starbucks/master/locations.json')
+        allStores = data
+        res.json(data)
     } catch (error) {
-        console.log('error:', error)
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Error fetching store locations:', error)
+        res.status(500).json({ error: 'Failed to fetch store locations' })
     }
 })
 
-async function getCountryBoundariesByCode(countryCode) {
-    console.log('countryCode:', countryCode)
+//FILTER MULTIPLE STORES WITHIN COUNTRY BOUNDARIES
+app.post('/filter-stores', async (req, res) => {
+    const { countryCode } = req.body
+    console.log('req.body:', req.body)
+    if (!allStores || !countryCode || countryCode.length !== 2) {
+        return res.status(400).json({ error: 'Missing stores or countryCode' })
+    }
+
     try {
-        const countryDetails = allCountryBoundaries?.features.find(country => country.properties.ISO_A2 === countryCode)
+        const countryBoundaries = getCountryBoundariesByCode(countryCode)
 
-        if (!countryDetails) {
-            console.error('Couldn\'t find country boundaries for:', countryCode)
-            return null
+        if (!countryBoundaries) {
+            return res.status(404).json({ error: 'Country boundaries not found' })
         }
 
-        const boundaries = {
-            type: countryDetails.geometry.type,
-            coordinates: countryDetails.geometry.coordinates
-        }
+        const filteredStores = allStores.filter(store => {
+            const pointLocation = point([store.longitude, store.latitude])
+            return booleanPointInPolygon(pointLocation, countryBoundaries)
+        })
 
-        return boundaries
+        console.log('filteredStores:', filteredStores)
+        res.json({ filteredStores, countryBoundaries })
     } catch (error) {
-        console.error('Error getting country boundaries:', error)
+        console.error('error:', error)
+        res.status(500).json({ error: 'Internal Server Error' })
+    }
+})
+
+function getCountryBoundariesByCode(countryCode) {
+    //ISO_A2 is 2 letter code
+    const countryDetails = allCountryBoundaries?.features.find(country => country.properties.ISO_A2 === countryCode)
+
+    if (!countryDetails) {
+        console.error('Couldn\'t find country boundaries for:', countryCode)
         return null
     }
 
+    return {
+        type: countryDetails.geometry.type,
+        coordinates: countryDetails.geometry.coordinates
+    }
 }
+
+//CHECK IF A SINGLE LOCATION IS WITHIN A COUNTRY BOUNDARIES - 
+
+// app.post('/check-location', async (req, res) => {
+//     const { coordinates, countryCode } = req.body
+//     console.log('req.body:', req.body)
+//     if (!coordinates || !countryCode || countryCode.length !== 2) {
+//         return res.status(400).json({ error: 'Missing coordinates or countryCode' })
+//     }
+
+//     try {
+//         const countryBoundaries = await getCountryBoundariesByCode(countryCode)
+
+//         if (!countryBoundaries) {
+//             return res.status(404).json({ error: 'Country not found' })
+//         }
+
+//         const pointLocation = point(coordinates)
+//         const isInside = booleanPointInPolygon(pointLocation, countryBoundaries)
+//         console.log('isInside:', isInside)
+//         res.json({ isInside })
+//     } catch (error) {
+//         console.log('error:', error)
+//         res.status(500).json({ error: 'Internal Server Error' })
+//     }
+// })
 
 const port = process.env.PORT || 3030
 app.listen(port, () => {
