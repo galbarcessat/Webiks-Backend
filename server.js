@@ -29,7 +29,9 @@ const loadCountryBoundaries = () => {
 loadCountryBoundaries()
 
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.resolve('public')))
+} else {
     const corsOptions = {
         origin: [
             'http://127.0.0.1:3000',
@@ -38,12 +40,12 @@ if (process.env.NODE_ENV !== 'production') {
             'http://localhost:5173'
         ],
         credentials: true
-    };
-    app.use(cors(corsOptions));
+    }
+    app.use(cors(corsOptions))
 }
 
-
-app.get('/stores', async (req, res) => {
+//get all store locations
+app.get('/api/store/', async (req, res) => {
     try {
         const { data } = await axios.get('https://raw.githubusercontent.com/mmcloughlin/starbucks/master/locations.json')
         allStores = data
@@ -55,7 +57,7 @@ app.get('/stores', async (req, res) => {
 })
 
 //FILTER MULTIPLE STORES WITHIN COUNTRY BOUNDARIES
-app.post('/filter-stores', async (req, res) => {
+app.post('/api/store/filter-stores', async (req, res) => {
     const { countryCode } = req.body
     if (!allStores || !countryCode || countryCode.length !== 2) {
         return res.status(400).json({ error: 'Missing stores or countryCode' })
@@ -94,6 +96,13 @@ function getCountryBoundariesByCode(countryCode) {
         coordinates: countryDetails.geometry.coordinates
     }
 }
+
+// Make every server-side-route to match the index.html
+// so when requesting http://localhost:3030/index.html/car/123 it will still respond with
+// our SPA (single page app) (the index.html file) and allow vue/react-router to take it from there
+app.get('/**', (req, res) => {
+    res.sendFile(path.resolve('public/index.html'))
+})
 
 const port = process.env.PORT || 3030
 app.listen(port, () => {
